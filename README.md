@@ -1,387 +1,231 @@
 # Darukaa Biodiversity Intelligence
 
-An AI-powered environmental intelligence system that analyzes environmental conditions, connects multiple ecological variables, retrieves scientific evidence, and generates evidence-backed recommendations.
+AI-powered environmental intelligence and biodiversity recommendation system. It takes soil, climate, land-use, biodiversity, and human-impact information — as natural language or structured input — and produces evidence-backed recommendations grounded in a retrieval-augmented knowledge base of scientific documents (IPCC, FAO), rather than in an LLM's unchecked internal knowledge.
+
+**Repository:** https://github.com/Muzzi7385/darukaa-biodiversity-intelligence
+**Live demo:** Not deployed; run locally using the instructions below.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Technology Stack](#technology-stack)
+- [Environmental Data Model](#environmental-data-model)
+- [Knowledge Base / RAG](#knowledge-base--rag)
+- [Database / Knowledge Schema](#database--knowledge-schema)
+- [API Endpoints](#api-endpoints)
+- [Local Setup](#local-setup)
+- [Project Structure](#project-structure)
+- [CI/CD](#cicd)
+- [Limitations](#limitations)
+- [Future Improvements](#future-improvements)
+
+---
 
 ## Overview
 
-The system is designed around a structured environmental knowledge layer rather than relying only on an LLM.
+The system maintains a structured `EnvironmentalState` (soil, land use, biodiversity, climate, human impact), reasons across multiple variables at once (e.g. rainfall ↔ soil moisture ↔ biodiversity), retrieves supporting scientific evidence for candidate interventions via RAG, and returns recommendations that include what to do, why it may help, affected metrics, time horizon, evidence quality, and caveats — each backed by a document and page-level citation.
 
-A user can describe an environmental situation using natural language, for example:
-
-> "The region is semi-arid with wheat monoculture. Soil pH is 7.8, organic carbon is 0.4%, moisture is low, rainfall is 450 mm, temperature is 32°C, species richness and habitat diversity are low, and pesticide pollution is moderate."
-
-The system extracts the environmental state, identifies important environmental findings, reasons across multiple variables, retrieves relevant scientific literature using RAG, evaluates possible interventions, and returns an evidence-backed recommendation.
-
-## Key Features
-
-- Natural-language environmental input
-- Structured environmental state extraction
-- Multi-turn conversational context
-- Retrieval-Augmented Generation (RAG)
-- Semantic search using sentence embeddings
-- ChromaDB vector database
-- Scientific evidence retrieval
-- Multi-metric environmental reasoning
-- Soil health analysis
-- Land-use analysis
-- Biodiversity analysis
-- Climate analysis
-- Human-impact analysis
-- Evidence-backed recommendations
-- Intervention eligibility and evidence evaluation
-- Affected-metric identification
-- Frontend visualization of environmental findings and relationships
-
-## Environmental Variables
-
-The system models five major environmental dimensions.
-
-### Soil
-
-- pH
-- Soil organic carbon (SOC)
-- Soil moisture
-
-### Land Use
-
-- Land-use type
-- Crop
-- Agricultural system
-
-### Biodiversity
-
-- Species richness
-- Habitat diversity
-
-### Climate
-
-- Temperature
-- Rainfall
-
-### Human Impact
-
-- Pollution
-- Deforestation
+A multi-turn `/chat` endpoint lets a user describe their land incrementally, with the system preserving previously extracted environmental information across turns via a `conversation_id`.
 
 ## Architecture
 
-```text
-                    ┌──────────────────────┐
-                    │       React UI       │
-                    │     Vite Frontend    │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │       FastAPI        │
-                    │       Backend        │
-                    └──────────┬───────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-              ▼                ▼                ▼
-       ┌─────────────┐  ┌──────────────┐  ┌───────────────┐
-       │ Environment │  │ Multi-Metric │  │ Conversation  │
-       │  Extractor  │  │   Reasoning  │  │    Service    │
-       └──────┬──────┘  └──────┬───────┘  └───────────────┘
-              │                │
-              │                ▼
-              │        ┌───────────────┐
-              │        │ Recommendation│
-              │        │    Engine     │
-              │        └──────┬────────┘
-              │               │
-              ▼               ▼
-       ┌──────────────────────────────┐
-       │           RAG Layer          │
-       │                              │
-       │ Query Builder → Retriever    │
-       │ Embeddings → ChromaDB        │
-       └──────────────┬───────────────┘
-                      │
-                      ▼
-              ┌─────────────────┐
-              │   Scientific    │
-              │ Knowledge Base  │
-              │                 │
-              │ IPCC + FAO +    │
-              │ Environmental   │
-              │ Documents       │
-              └─────────────────┘
-RAG Pipeline
+```
+┌─────────────────────────────┐
+│   React / Vite Frontend      │
+│   (environment form + chat)  │
+└───────────────┬───────────────┘
+                │ REST / JSON
+┌───────────────▼───────────────┐
+│        FastAPI Backend         │
+│  ┌───────────────────────────┐ │
+│  │ Environment Extractor      │ │
+│  ├───────────────────────────┤ │
+│  │ Conversation Service       │ │
+│  ├───────────────────────────┤ │
+│  │ Reasoning Engine            │ │
+│  ├───────────────────────────┤ │
+│  │ RAG Layer (retrieval)       │ │
+│  ├───────────────────────────┤ │
+│  │ Recommendation Engine       │ │
+│  └───────────────────────────┘ │
+└───────────────┬───────────────┘
+                │
+┌───────────────▼───────────────┐
+│  ChromaDB (local vector DB)    │
+│  embeddings: all-MiniLM-L6-v2  │
+│  source: data/documents/*.pdf  │
+└─────────────────────────────────┘
+```
 
-The system uses Retrieval-Augmented Generation so environmental knowledge is retrieved from a scientific knowledge base instead of relying only on the LLM's internal knowledge.
+**Components**
 
-User Environmental Input
-          ↓
-Environmental State Extraction
-          ↓
-Structured Environmental State
-          ↓
-Environmental Query Builder
-          ↓
-Sentence Transformer Embeddings
-          ↓
-ChromaDB Semantic Search
-          ↓
-Relevant Scientific Passages
-          ↓
-Evidence Validation
-          ↓
-Multi-Metric Reasoning
-          ↓
-Intervention Evaluation
-          ↓
-Evidence-Backed Recommendation
-Knowledge Base
+- **Frontend (React/Vite):** renders the environment input form, environmental state summary, cross-variable findings, and final recommendation.
+- **Environment Extractor:** converts free-text or partial input into a structured `EnvironmentalState` using LLM-based extraction (Groq API), filling in only what the user actually provided.
+- **Conversation Service:** tracks a `conversation_id` per session and preserves previously extracted environmental information across turns, updating state incrementally.
+- **Reasoning Engine:** derives findings (e.g. low soil moisture, monoculture system) and connects multiple variables into relationship statements (e.g. rainfall ↔ soil moisture ↔ biodiversity).
+- **RAG Layer:** embeds retrieval queries with a sentence-transformer model and retrieves relevant chunks from ChromaDB.
+- **Recommendation Engine:** evaluates candidate interventions against retrieved evidence and reasoning-engine findings; outputs suitability, time horizon, problem coverage, evidence quality, affected metrics, and caveats.
 
-The current knowledge base contains scientific and environmental documents including:
+## Technology Stack
 
-IPCC AR6 WGII Full Report
-FAO environmental/agricultural documentation
-Additional biodiversity and environmental reference material
+| Layer | Technologies |
+|---|---|
+| Backend | Python, FastAPI, Pydantic, python-dotenv |
+| AI / LLM | Groq API (LLM-based extraction and reasoning support) |
+| Embeddings | Sentence Transformers (`all-MiniLM-L6-v2`) |
+| Vector store | ChromaDB (local) |
+| Document processing | PyPDF |
+| Frontend | React, Vite, JavaScript, CSS |
+| Large file handling | Git LFS (for source PDF documents) |
 
-The documents are stored in:
+## Environmental Data Model
 
-data/documents/
+`EnvironmentalState`:
 
-The documents are processed into retrievable chunks, converted into vector embeddings using:
+```
+region
 
-all-MiniLM-L6-v2
+soil:
+  - ph
+  - organic_carbon
+  - moisture
 
-and stored in ChromaDB for semantic retrieval.
+land_use:
+  - land_use_type
+  - crop
+  - system
 
-The large PDF knowledge sources are tracked using Git LFS.
+biodiversity:
+  - species_richness
+  - habitat_diversity
 
-Database / Knowledge Schema
+climate:
+  - temperature
+  - rainfall
 
-The structured environmental state follows this schema:
+human_impact:
+  - pollution
+  - deforestation
+```
 
-EnvironmentalState
-│
-├── region
-│
-├── soil
-│   ├── ph
-│   ├── organic_carbon
-│   └── moisture
-│
-├── land_use
-│   ├── land_use_type
-│   ├── crop
-│   └── system
-│
-├── biodiversity
-│   ├── species_richness
-│   └── habitat_diversity
-│
-├── climate
-│   ├── temperature
-│   └── rainfall
-│
-└── human_impact
-    ├── pollution
-    └── deforestation
+### Multi-metric reasoning
 
-The vector knowledge layer stores document chunks with associated metadata:
+The reasoning engine currently implements these cross-variable relationships:
 
-Document Chunk
-│
-├── text
-├── source
-├── page
-├── embedding
-└── metadata
-Multi-Metric Environmental Reasoning
+- Rainfall ↔ Soil Moisture
+- Temperature ↔ Soil Moisture
+- Water Availability ↔ Land Use ↔ Biodiversity
+- Soil Organic Carbon ↔ Soil Moisture
+- Soil Health ↔ Water Availability ↔ Land Use
+- Land-use Diversity ↔ Biodiversity
+- Water Availability ↔ Biodiversity
+- Land-use System ↔ Habitat Diversity
+- Human Impact ↔ Biodiversity
 
-A core part of the system is its ability to reason across multiple environmental variables instead of treating each metric independently.
+## Knowledge Base / RAG
 
-The reasoning layer currently models relationships including:
+Source documents (in `data/documents/`, tracked via Git LFS):
 
-Rainfall ↔ Soil Moisture
-Temperature ↔ Soil Moisture
-Water Availability ↔ Land Use ↔ Biodiversity
-Soil Organic Carbon ↔ Soil Moisture
-Soil Health ↔ Water Availability ↔ Land Use
-Land-use Diversity ↔ Biodiversity
-Water Availability ↔ Biodiversity
-Land-use System ↔ Habitat Diversity
-Human Impact ↔ Biodiversity
+- `IPCC_AR6_WGII_FullReport.pdf`
+- `cb6378en.pdf`
+- `i1861e.pdf`
 
-This allows the system to identify interactions between environmental conditions.
+**Pipeline:** documents → chunked → embedded with `all-MiniLM-L6-v2` → stored in a local ChromaDB instance. The generated ChromaDB database is **excluded from Git** (see `.gitignore`) because it can be deterministically rebuilt from the source PDFs — this is intentional, not a missing artifact.
 
-For example, reduced rainfall can contribute to lower water availability and soil moisture, which can interact with land-use practices and potentially affect biodiversity.
+At query time, candidate interventions are turned into retrieval queries, embedded with the same model, and matched against stored vectors. Retrieved chunks carry source filename and page number, which are surfaced as citations (e.g. `i1861e.pdf, p. 73`) in the final recommendation.
 
-Environmental Findings
+**Why RAG instead of prompting alone:** an LLM prompted directly for environmental advice can't show where a claim came from. Retrieving from indexed, page-numbered PDFs lets every recommendation carry a checkable citation, satisfying the requirement for a retrievable knowledge layer rather than knowledge existing only inside a prompt.
 
-The reasoning engine identifies environmental pressures based on the structured environmental state.
+## Database / Knowledge Schema
 
-Examples include:
+Two data layers:
 
-Low soil moisture
-Low rainfall
-High temperature
-Low soil organic carbon
-Soil pH concerns
-Monoculture pressure
-Low species richness
-Low habitat diversity
-Pollution pressure
-Deforestation pressure when applicable
+1. **Structured state** — `EnvironmentalState` is a Pydantic model passed between the frontend, extractor, reasoning engine, and recommendation engine. Not persisted in a relational database in this prototype; held in memory per request/conversation.
+2. **Vector knowledge records** — each indexed document chunk is stored in ChromaDB as a vector record with its `all-MiniLM-L6-v2` embedding plus metadata (source filename, page number). Retrieval returns nearest chunks by embedding similarity.
 
-The system uses prototype thresholds and qualitative environmental indicators as part of the reasoning layer.
+## API Endpoints
 
-Recommendation Engine
+| Method & Path | Purpose |
+|---|---|
+| `GET /health` | Service health check |
+| `POST /environment/analyze` | Submit a structured or extracted environmental state for analysis |
+| `POST /environment/reason` | Run the reasoning engine and recommendation engine over an environmental state |
+| `POST /chat` | Multi-turn conversational endpoint; accepts `conversation_id` and natural-language input |
 
-The recommendation engine evaluates candidate interventions against the detected environmental conditions.
+Interactive API docs are available at `/docs` once the backend is running.
 
-The recommendation output can contain:
+## Local Setup
 
-Recommended intervention
-Intervention suitability
-Time horizon
-Problem coverage
-Evidence quality
-Affected environmental metrics
-Scientific evidence
-Caveats
+Clone the repository:
 
-Affected metrics are represented using qualitative descriptions such as:
+```bash
+git clone https://github.com/Muzzi7385/darukaa-biodiversity-intelligence.git
+cd darukaa-biodiversity-intelligence
+```
 
-Potential improvement
-Potential indirect benefit
+Install Git LFS and pull large files (the PDF knowledge-base documents):
 
-The system uses deterministic reasoning together with retrieved scientific evidence to evaluate candidate interventions.
+```bash
+git lfs install
+git lfs pull
+```
 
-The system does not claim unsupported numerical ecological improvements.
+Create and activate a Python virtual environment:
 
-Evidence-Backed Recommendations
+```bash
+python3 -m venv .venv
+source .venv/bin/activate   # macOS/Linux
+```
 
-Recommendations are connected to retrieved scientific evidence from the knowledge base.
+Install backend dependencies:
 
-Retrieved evidence can contain:
+```bash
+pip install -r requirements.txt
+```
 
-Evidence
-│
-├── Source
-├── Page
-├── Retrieved Text
-├── Query
-└── Similarity / Distance
+Create a `.env` file in the project root:
 
-This provides traceability between environmental recommendations and the scientific material retrieved from the knowledge base.
+```
+GROQ_API_KEY=your_groq_api_key
+```
 
-Conversational Intelligence
+Build the RAG vector database from the source documents:
 
-The /chat endpoint supports multi-turn environmental conversations using a conversation_id.
+```bash
+python -m backend.rag.ingest
+```
 
-The system can:
+Run the backend:
 
-Extract environmental information from natural language.
-Preserve previously provided environmental information.
-Update the environmental state when new information is provided.
-Use the accumulated environmental context for subsequent reasoning.
-Retrieve evidence based on the current environmental state.
+```bash
+uvicorn backend.main:app --reload
+```
 
-Example:
+- Backend: http://127.0.0.1:8000
+- API docs: http://127.0.0.1:8000/docs
 
-User:
-The region is semi-arid with wheat cultivation.
+Run the frontend (in a separate terminal):
 
-System:
-The environmental state is updated with the available information.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-User:
-It is a monoculture system and soil moisture is low.
+## Project Structure
 
-System:
-The existing environmental state is updated and the system
-can reason using the combined land-use and soil-moisture context.
-API Endpoints
-Health Check
-GET /health
-
-Returns the current backend service status.
-
-Environment Analysis
-POST /environment/analyze
-
-Accepts a structured EnvironmentalState.
-
-Environmental Reasoning
-POST /environment/reason
-
-Performs:
-
-Environmental analysis
-Environmental query generation
-Scientific retrieval
-Multi-metric reasoning
-Intervention evaluation
-Evidence evaluation
-Conversational Analysis
-POST /chat
-
-Accepts a conversational message and conversation ID.
-
-Example:
-
-{
-  "conversation_id": "default",
-  "message": "The region has low rainfall and wheat monoculture."
-}
-Technology Stack
-Backend
-Python
-FastAPI
-Pydantic
-Groq API
-Sentence Transformers
-ChromaDB
-PyPDF
-python-dotenv
-Frontend
-React
-Vite
-JavaScript
-CSS
-AI / ML
-all-MiniLM-L6-v2
-Vector embeddings
-Retrieval-Augmented Generation
-LLM-based environmental information extraction
-Multi-metric environmental reasoning
-Evidence-based intervention evaluation
-Project Structure
+```
 darukaa-biodiversity-ai/
-│
 ├── backend/
 │   ├── main.py
-│   │
 │   ├── api/
-│   │   └── health.py
-│   │
 │   ├── models/
-│   │   ├── environmental_state.py
-│   │   └── recommendation.py
-│   │
 │   ├── rag/
-│   │   ├── embeddings.py
-│   │   ├── ingest.py
-│   │   └── retriever.py
-│   │
 │   ├── reasoning/
-│   │   ├── evidence_matrix.py
-│   │   ├── evidence_validator.py
-│   │   ├── multi_metric.py
-│   │   ├── query_builder.py
-│   │   ├── recommendation_engine.py
-│   │   └── tradeoff_detector.py
-│   │
 │   └── services/
-│       ├── conversation_service.py
-│       ├── environment_extractor.py
-│       └── groq_service.py
 │
 ├── data/
 │   └── documents/
@@ -394,209 +238,34 @@ darukaa-biodiversity-ai/
 ├── .env.example
 ├── .gitignore
 └── README.md
-Local Setup
-1. Clone the repository
-git clone https://github.com/Muzzi7385/darukaa-biodiversity-intelligence.git
-cd darukaa-biodiversity-intelligence
-2. Install Git LFS
+```
 
-The scientific PDF files are stored using Git LFS.
+## CI/CD
 
-git lfs install
-git lfs pull
-3. Create Python Environment
-python3 -m venv .venv
-source .venv/bin/activate
+**Not configured** in this assessment prototype. There is no automated build, test, or deployment pipeline. See [Future Improvements](#future-improvements).
 
-For Windows:
+## Limitations
 
-.venv\Scripts\activate
-4. Install Backend Dependencies
-pip install -r requirements.txt
-5. Configure Environment Variables
+- This is an assessment prototype, not a production system.
+- Environmental thresholds and reasoning rules are prototype logic, not calibrated against regional agronomic data.
+- Region-specific ecological calibration is not implemented.
+- Production cloud deployment is not implemented; the project runs locally only.
+- CI/CD is not implemented.
+- Quantitative ecological impact prediction is not implemented — affected metrics are described qualitatively (e.g. "potential improvement"), not as invented percentages.
+- Geographic coordinate-based analysis is not implemented.
+- Real-time environmental data integration (e.g. live weather feeds) is not implemented.
 
-Create a .env file in the project root:
+## Future Improvements
 
-GROQ_API_KEY=your_groq_api_key
-
-A template is available in:
-
-.env.example
-
-Do not commit the .env file.
-
-6. Build the RAG Database
-
-The source documents are located in:
-
-data/documents/
-
-The generated ChromaDB database is intentionally excluded from Git because it can be recreated locally.
-
-Run:
-
-python -m backend.rag.ingest
-7. Start the Backend
-
-From the project root:
-
-uvicorn backend.main:app --reload
-
-Backend:
-
-http://127.0.0.1:8000
-
-FastAPI documentation:
-
-http://127.0.0.1:8000/docs
-8. Start the Frontend
-
-Open another terminal:
-
-cd frontend
-npm install
-npm run dev
-
-The Vite development server will provide the frontend URL in the terminal.
-
-Environment Variables
-Variable	Purpose
-GROQ_API_KEY	Authentication for the Groq LLM API
-
-The .env file is excluded through .gitignore.
-
-Generated Data
-
-The following directories are intentionally excluded from Git:
-
-.venv/
-node_modules/
-data/chroma/
-__pycache__/
-
-The ChromaDB database can be recreated from the source documents using the ingestion pipeline.
-
-CI/CD
-
-CI/CD is not configured in the current assessment prototype.
-
-The project can be extended with GitHub Actions for automated testing and deployment.
-
-Assessment Requirement Coverage
-Assessment Requirement	Implementation
-Structured environmental knowledge layer	Structured EnvironmentalState model
-Retrievable environmental knowledge	ChromaDB semantic retrieval
-Soil health	pH, SOC, soil moisture
-Land use / land cover	Land-use type, crop, agricultural system
-Biodiversity indicators	Species richness, habitat diversity
-Climate	Temperature, rainfall
-Human impact	Pollution, deforestation
-RAG	Document retrieval + embeddings
-Vector database	ChromaDB
-Natural-language input	Environmental information extractor
-Conversational system	/chat endpoint
-Multi-turn context	Conversation service
-Evidence-backed recommendations	Retrieved evidence + intervention evaluation
-Multi-metric reasoning	Environmental relationship engine
-Affected metrics	Recommendation output
-Time horizon	Recommendation output
-Structured input	Pydantic environmental state
-Example Scenario
-Input
-Region: Semi-arid
-
-Crop: Wheat
-
-System: Monoculture
-
-Soil pH: 7.8
-
-Soil Organic Carbon: 0.4%
-
-Soil Moisture: Low
-
-Rainfall: 450 mm
-
-Temperature: 32°C
-
-Species Richness: Low
-
-Habitat Diversity: Low
-
-Pollution: Moderate pesticide pressure
-
-Deforestation: None
-Example Findings
-
-The system can identify:
-
-Low soil moisture
-Low rainfall
-High temperature
-Low soil organic carbon
-Monoculture pressure
-Low species richness
-Low habitat diversity
-Pollution pressure
-Example Relationships
-
-The system can connect:
-
-Rainfall
-    ↕
-Soil Moisture
-Water Availability
-        ↕
-    Land Use
-        ↕
-   Biodiversity
-Soil Organic Carbon
-        ↕
-   Soil Moisture
-
-The system then retrieves relevant scientific evidence and evaluates candidate interventions against the identified environmental conditions.
-
-Limitations
-
-This project is an assessment prototype.
-
-Environmental thresholds and reasoning rules are prototype logic.
-Region-specific calibration is not currently implemented.
-Production cloud deployment is not implemented.
-CI/CD is not currently configured.
-Quantitative ecological impact prediction is not implemented.
-Geographic coordinate-based analysis is not implemented.
-Real-time environmental data integration is not implemented.
-
-The qualitative recommendations should be validated against region-specific datasets and environmental domain expertise before operational use.
-
-Future Improvements
-
-Potential future improvements include:
-
-Geographic coordinate-based environmental analysis
-Satellite imagery integration
-Remote sensing land-cover data
-Real-time weather data
-Region-specific ecological thresholds
-Biodiversity datasets
-Automated environmental monitoring
-Quantitative intervention impact estimates
-Confidence calibration
-Automated evaluation benchmarks
-CI/CD pipelines
-Cloud deployment
-Persistent production vector infrastructure
-Repository
-
-GitHub:
-
-https://github.com/Muzzi7385/darukaa-biodiversity-intelligence
-
-Notes
-
-This repository contains the assessment prototype and its source code.
-
-Large scientific PDF files are tracked using Git LFS.
-
-The generated ChromaDB database is excluded from Git and can be recreated locally using the ingestion pipeline.
+- Geographic coordinate-based environmental analysis
+- Satellite imagery integration
+- Remote sensing land-cover data
+- Real-time weather data integration
+- Region-specific ecological thresholds
+- Expanded biodiversity datasets
+- Automated environmental monitoring
+- Quantitative intervention impact estimates
+- Confidence calibration
+- Automated evaluation benchmarks
+- CI/CD pipeline
+- Cloud deployment
