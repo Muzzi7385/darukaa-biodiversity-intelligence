@@ -1,6 +1,6 @@
 # Darukaa Biodiversity Intelligence
 
-AI-powered environmental intelligence and biodiversity recommendation system. It takes soil, climate, land-use, biodiversity, and human-impact information — as natural language or structured input — and produces evidence-backed recommendations grounded in a retrieval-augmented knowledge base of scientific documents (IPCC, FAO), rather than in an LLM's unchecked internal knowledge.
+AI-powered environmental intelligence and biodiversity recommendation system. It accepts environmental information through natural-language conversation and structured environmental-state input and produces evidence-backed recommendations grounded in a retrieval-augmented knowledge base of scientific documents (IPCC, FAO), rather than in an LLM's unchecked internal knowledge.
 
 **Repository:** https://github.com/Muzzi7385/darukaa-biodiversity-intelligence
 **Live demo:** Not deployed; run locally using the instructions below.
@@ -282,6 +282,7 @@ darukaa-biodiversity-ai/
 | Time horizon | Recommendation output |
 | Vector database | ChromaDB |
 | Embeddings | `all-MiniLM-L6-v2` |
+- [Assessment Requirement Coverage](#assessment-requirement-coverage)
 
 ## Limitations
 
