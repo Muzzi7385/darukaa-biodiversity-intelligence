@@ -32,33 +32,49 @@ A multi-turn `/chat` endpoint lets a user describe their land incrementally, wit
 
 ## Architecture
 
-```
-┌─────────────────────────────┐
-│   React / Vite Frontend      │
-│   (environment form + chat)  │
-└───────────────┬───────────────┘
-                │ REST / JSON
-┌───────────────▼───────────────┐
-│        FastAPI Backend         │
-│  ┌───────────────────────────┐ │
-│  │ Environment Extractor      │ │
-│  ├───────────────────────────┤ │
-│  │ Conversation Service       │ │
-│  ├───────────────────────────┤ │
-│  │ Reasoning Engine            │ │
-│  ├───────────────────────────┤ │
-│  │ RAG Layer (retrieval)       │ │
-│  ├───────────────────────────┤ │
-│  │ Recommendation Engine       │ │
-│  └───────────────────────────┘ │
-└───────────────┬───────────────┘
-                │
-┌───────────────▼───────────────┐
-│  ChromaDB (local vector DB)    │
-│  embeddings: all-MiniLM-L6-v2  │
-│  source: data/documents/*.pdf  │
-└─────────────────────────────────┘
-```
+
+                    ┌──────────────────────┐
+                    │       React UI       │
+                    │     Vite Frontend    │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │       FastAPI        │
+                    │       Backend        │
+                    └──────────┬───────────┘
+                               │
+              ┌────────────────┼────────────────┐
+              │                │                │
+              ▼                ▼                ▼
+       ┌─────────────┐  ┌──────────────┐  ┌───────────────┐
+       │ Environment │  │ Multi-Metric │  │ Conversation  │
+       │  Extractor  │  │   Reasoning  │  │    Service    │
+       └──────┬──────┘  └──────┬───────┘  └───────────────┘
+              │                │
+              │                ▼
+              │        ┌────────────────┐
+              │        │ Recommendation │
+              │        │    Engine      │
+              │        └──────┬─────────┘
+              │               │
+              ▼               ▼
+       ┌──────────────────────────────┐
+       │           RAG Layer          │
+       │                              │
+       │ Query Builder → Retriever    │
+       │ Embeddings → ChromaDB        │
+       └──────────────┬───────────────┘
+                      │
+                      ▼
+              ┌─────────────────┐
+              │   Scientific    │
+              │ Knowledge Base  │
+              │                 │
+              │ IPCC + FAO +    │
+              │ Environmental   │
+              │ Documents       │
+              └─────────────────┘
 
 **Components**
 
