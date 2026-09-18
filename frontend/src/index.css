@@ -1,0 +1,80 @@
+:root {
+  --green-primary: #173b27;
+  --green-secondary: #2e7546;
+  --green-tint: #eef2ec;
+  --neutral-deep: #18231c;
+  --text-body: #4f5b53;
+  --text-muted: #78837b;
+  --bg: #f5f6f2;
+  --card: #ffffff;
+  --border: #dee5de;
+  --amber: #9a6a2f;
+  --amber-tint: #f6efe3;
+
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+
+  --shadow-card: 0 1px 2px rgba(23, 59, 39, 0.04);
+
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--neutral-deep);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+}
+
+textarea,
+input {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(46, 117, 70, 0.18);
+}
+
+:focus-visible {
+  outline: 2px solid var(--green-secondary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
