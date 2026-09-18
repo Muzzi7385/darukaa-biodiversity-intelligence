@@ -256,9 +256,32 @@ darukaa-biodiversity-ai/
 └── README.md
 ```
 
+
 ## CI/CD
 
 **Not configured** in this assessment prototype. There is no automated build, test, or deployment pipeline. See [Future Improvements](#future-improvements).
+
+## Assessment Requirement Coverage
+
+| Requirement | Implementation |
+|---|---|
+| Structured environmental knowledge | `EnvironmentalState` model |
+| Retrievable environmental knowledge | ChromaDB + embeddings |
+| Soil health | pH, SOC, soil moisture |
+| Land use / land cover | Land-use type, crop, agricultural system |
+| Biodiversity indicators | Species richness, habitat diversity |
+| Climate | Temperature, rainfall |
+| Human impact | Pollution, deforestation |
+| Natural-language input | Environment extractor + `/chat` |
+| Structured input | Pydantic `EnvironmentalState` |
+| Conversational system | `/chat` + `conversation_id` |
+| Multi-turn context | Conversation service |
+| Evidence-backed recommendations | RAG + evidence evaluation |
+| Multi-metric reasoning | Environmental relationship engine |
+| Affected metrics | Recommendation output |
+| Time horizon | Recommendation output |
+| Vector database | ChromaDB |
+| Embeddings | `all-MiniLM-L6-v2` |
 
 ## Limitations
 
