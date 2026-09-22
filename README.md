@@ -3,7 +3,7 @@
 AI-powered environmental intelligence and biodiversity recommendation system. It accepts environmental information through natural-language conversation and structured environmental-state input and produces evidence-backed recommendations grounded in a retrieval-augmented knowledge base of scientific documents (IPCC, FAO), rather than in an LLM's unchecked internal knowledge.
 
 **Repository:** https://github.com/Muzzi7385/darukaa-biodiversity-intelligence
-**Live demo:** Not deployed; run locally using the instructions below.
+**Live demo:** https://drive.google.com/file/d/10JMTqLMfjTIzIXEm8QFM9HaXSMuAF3W8/view?usp=drive_link
 
 ---
 
